@@ -504,8 +504,24 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         pass
 
     @log_helpers.log_method_call
-    def delete_loadbalancer(self, context, endpoint, service):
+    def delete_endpoint(self, context, endpoint, service):
         """Handle RPC cast from plugin to delete_endpoint."""
+        pass
+
+    @log_helpers.log_method_call
+    def create_ep_service(self, context, ep_service, service):
+        """Handle RPC cast from plugin to create endpoint service."""
+        pass
+
+    @log_helpers.log_method_call
+    def update_ep_service(self, context, old_ep_service,
+                            ep_service, service):
+        """Handle RPC cast from plugin to update endpoint service."""
+        pass
+
+    @log_helpers.log_method_call
+    def delete_ep_service(self, context, ep_service, service):
+        """Handle RPC cast from plugin to delete endpoint service."""
         pass
 
     @log_helpers.log_method_call
