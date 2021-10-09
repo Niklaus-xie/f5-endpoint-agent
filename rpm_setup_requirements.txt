@@ -1,0 +1,2 @@
+# this file stores required dependencies of f5 endpoint agent for redhat
+f5-sdk==3.0.11
