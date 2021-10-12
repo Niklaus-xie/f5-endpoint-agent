@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from oslo_log import helpers as log_helpers
+# from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging as messaging
 

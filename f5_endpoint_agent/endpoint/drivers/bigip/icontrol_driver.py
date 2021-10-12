@@ -16,26 +16,29 @@
 
 import base64
 import datetime
-import hashlib
-import json
+# import hashlib
+# import json
 import logging as std_logging
 import os
 import signal
-import urllib
+# import urllib
 
-from eventlet import greenthread
+# from eventlet import greenthread
 from time import strftime
-from time import time
+# from time import time
 
-from requests import HTTPError
+# from requests import HTTPError
 
 from oslo_config import cfg
-from oslo_log import helpers as log_helpers
+# from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-# from f5.bigip import ManagementRoot
+from f5_endpoint_agent.endpoint.drivers.bigip import exceptions as f5ex
+
+from f5.bigip import ManagementRoot
 from f5_endpoint_agent.endpoint.drivers.bigip import constants_v2 as f5const
+from f5_endpoint_agent.endpoint.drivers.bigip import stat_helper
 from f5_endpoint_agent.endpoint.drivers.bigip.utils import serialized
 
 from f5_endpoint_agent.endpoint.drivers.bigip.endpoint_driver import \
@@ -206,13 +209,7 @@ class iControlDriver(EndpointBaseDriver):
 
         # server helpers
         self.stat_helper = stat_helper.StatHelper()
-        self.network_helper = network_helper.NetworkHelper()
-
-        # f5-sdk helpers
-        self.vs_manager = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.virtual)
-        self.pool_manager = resource_helper.BigIPResourceHelper(
-            resource_helper.ResourceType.pool)
+        # self.network_helper = network_helper.NetworkHelper()
 
         if self.conf.password_cipher_mode:
             self.conf.icontrol_password = \
@@ -312,26 +309,6 @@ class iControlDriver(EndpointBaseDriver):
                 LOG.error('Failed to initialize CertManager. %s' % err.message)
                 # re-raise as ImportError to cause agent exit
                 raise ImportError(err.message)
-
-        self.service_adapter = ServiceModelAdapter(self.conf)
-        self.tenant_manager = BigipTenantManager(self.conf, self)
-        self.cluster_manager = ClusterManager()
-        self.system_helper = SystemHelper()
-        self.lbaas_builder = LBaaSBuilder(self.conf, self)
-
-        # Set esd_processor object as soon as ServiceModelAdapter and
-        # LBaaSBuilder class instantiated, otherwise manager RPC exception
-        # will break setting esd_porcessor procedure.
-        self.init_esd()
-
-        if self.conf.f5_global_routed_mode:
-            self.network_builder = None
-        else:
-            self.network_builder = NetworkServiceBuilder(
-                self.conf.f5_global_routed_mode,
-                self.conf,
-                self,
-                self.l3_binding)
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
@@ -767,10 +744,10 @@ class iControlDriver(EndpointBaseDriver):
             bigip = self.__bigips[hostname]
             self.agent_configurations[
                 'icontrol_endpoints'][bigip.hostname][
-                    'status'] = bigip.status
+                'status'] = bigip.status
             self.agent_configurations[
                 'icontrol_endpoints'][bigip.hostname][
-                    'status_message'] = bigip.status_message
+                'status_message'] = bigip.status_message
 
             if self.conf.report_esd_names_in_agent:
                 LOG.debug('adding names to report:')
@@ -806,11 +783,11 @@ class iControlDriver(EndpointBaseDriver):
                 failover_state = self.get_failover_state(bigip)
                 self.agent_configurations[
                     'icontrol_endpoints'][bigip.hostname][
-                        'failover_state'] = failover_state
+                    'failover_state'] = failover_state
             else:
                 self.agent_configurations[
                     'icontrol_endpoints'][bigip.hostname][
-                        'failover_state'] = 'unknown'
+                    'failover_state'] = 'unknown'
             self.agent_configurations['icontrol_endpoints'][
                 bigip.hostname]['status'] = bigip.status
             self.agent_configurations['icontrol_endpoints'][
@@ -880,30 +857,6 @@ class iControlDriver(EndpointBaseDriver):
     def set_plugin_rpc(self, plugin_rpc):
         # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc
-
-    def set_tunnel_rpc(self, tunnel_rpc):
-        # Provide FDB Connector with ML2 RPC access
-        if self.network_builder:
-            self.network_builder.set_tunnel_rpc(tunnel_rpc)
-
-    def set_l2pop_rpc(self, l2pop_rpc):
-        # Provide FDB Connector with ML2 RPC access
-        if self.network_builder:
-            self.network_builder.set_l2pop_rpc(l2pop_rpc)
-
-    def set_agent_report_state(self, report_state_callback):
-        """Set Agent Report State."""
-        self.agent_report_state = report_state_callback
-
-    def service_exists(self, service):
-        return self._service_exists(service)
-
-    def flush_cache(self):
-        # Remove cached objects so they can be created if necessary
-        for bigip in self.get_all_bigips():
-            bigip.assured_networks = {}
-            bigip.assured_tenant_snat_subnets = {}
-            bigip.assured_gateway_subnets = []
 
     @serialized('create_endpoint')
     @is_operational
