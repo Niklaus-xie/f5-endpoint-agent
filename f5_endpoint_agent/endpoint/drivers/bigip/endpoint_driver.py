@@ -15,13 +15,9 @@
 
 
 class EndpointBaseDriver(object):
-    """Abstract base Endpoint Driver class for interfacing with Agent Manager."""
+    """Abstract base Endpoint Driver class to interface with Agent Manager."""
 
     def __init__(self, conf):
-        """Maybe we can remove this method altogether? Or maybe it's for future.
-
-        subclassing...
-        """
         self.agent_id = None
         self.plugin_rpc = None  # XXX overridden in the only known subclass
         self.connected = False  # XXX overridden in the only known subclass
@@ -38,6 +34,3 @@ class EndpointBaseDriver(object):
     def set_agent_report_state(self, report_state_callback):
         """Set Agent Report State."""
         raise NotImplementedError()
-
-
-

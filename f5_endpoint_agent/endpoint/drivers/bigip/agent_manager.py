@@ -498,8 +498,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         pass
 
     @log_helpers.log_method_call
-    def update_endpoint(self, context, old_endpoint,
-                            endpoint, service):
+    def update_endpoint(self, context, old_endpoint, endpoint, service):
         """Handle RPC cast from plugin to update_endpoint."""
         pass
 
@@ -514,8 +513,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         pass
 
     @log_helpers.log_method_call
-    def update_ep_service(self, context, old_ep_service,
-                            ep_service, service):
+    def update_ep_service(self, context, old_ep_service, ep_service, service):
         """Handle RPC cast from plugin to update endpoint service."""
         pass
 
