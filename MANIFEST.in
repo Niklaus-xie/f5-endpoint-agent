@@ -1,0 +1,4 @@
+include etc/neutron/services/f5/f5-endpoint-agent.ini
+include etc/init.d/*
+include bin/*
+recursive-include lib *.service
