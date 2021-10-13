@@ -20,3 +20,22 @@ flake8:
     - yum install -y python-flake8
   script:
     - flake8 f5_endpoint_agent
+
+# build-agent:
+#   services:
+#     - docker
+#   tags:
+#     - cm-official-docker-executor
+#   stage: build
+#   artifacts:
+#     paths:
+#       - dist/
+#   before_script:
+#     - yum --enablerepo=extras install -y epel-release
+#     - yum install -y rpm-build python-pip python-setuptools
+#   script:
+#     - python -m pip install pip==19.0.3
+#     - python f5-endpoint-agent-dist/scripts/universal_truth.py
+#     - echo "setup.cfg:"
+#     - cat setup.cfg
+#     - f5-endpoint-agent-dist/scripts/package_agent.sh "redhat" "7"
