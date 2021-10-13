@@ -19,7 +19,7 @@ import inspect
 import service_launcher
 import sys
 
-import f5_endpoint_agent.lbaasv2.drivers.bigip.exceptions as exceptions
+import f5_endpoint_agent.endpoint.drivers.bigip.exceptions as exceptions
 
 try:
     from oslo_config import cfg

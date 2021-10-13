@@ -476,17 +476,6 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             LOG.debug("running periodic task to retry errored devices")
             self.lbdriver.recover_errored_devices()
 
-    @periodic_task.periodic_task(
-        spacing=constants_v2.UPDATE_OPERATING_STATUS_INTERVAL)
-    def scrub_dead_agents_in_env_and_group(self, context):
-        """Triggering a dead agent scrub on the controller."""
-        LOG.debug("running periodic scrub_dead_agents_in_env_and_group")
-        if not self.plugin_rpc:
-            return
-
-        self.plugin_rpc.scrub_dead_agents(self.conf.environment_prefix,
-                                          self.conf.environment_group_number)
-
     ######################################################################
     #
     # handlers for all in bound requests and notifications from controller
