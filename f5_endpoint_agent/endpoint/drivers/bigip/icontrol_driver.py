@@ -168,7 +168,7 @@ class iControlDriver(EndpointBaseDriver):
             self.conf.register_opts(OPTS)
         self.initialized = False
         self.hostnames = None
-        self.device_type = conf.f5_device_type
+        # self.device_type = conf.f5_device_type
         self.plugin_rpc = None  # overrides base, same value
         self.agent_report_state = None  # overrides base, same value
         self.operational = False  # overrides base, same value
@@ -218,7 +218,6 @@ class iControlDriver(EndpointBaseDriver):
                 self.conf.os_password = base64.b64decode(self.conf.os_password)
 
         try:
-
             # debug logging of service requests recieved by driver
             if self.conf.trace_service_requests:
                 path = '/var/log/neutron/service/'
@@ -309,6 +308,15 @@ class iControlDriver(EndpointBaseDriver):
                 LOG.error('Failed to initialize CertManager. %s' % err.message)
                 # re-raise as ImportError to cause agent exit
                 raise ImportError(err.message)
+
+        if self.conf.f5_global_routed_mode:
+            self.network_builder = None
+        # else:
+        #     self.network_builder = NetworkServiceBuilder(
+        #         self.conf.f5_global_routed_mode,
+        #         self.conf,
+        #         self,
+        #         self.l3_binding)
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
@@ -857,6 +865,29 @@ class iControlDriver(EndpointBaseDriver):
     def set_plugin_rpc(self, plugin_rpc):
         # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc
+
+    def get_all_bigips(self, **kwargs):
+        return_bigips = []
+        for host in list(self.__bigips):
+            if hasattr(self.__bigips[host], 'status') and \
+               self.__bigips[host].status == 'active':
+                return_bigips.append(self.__bigips[host])
+        msg = "Current active bigips are:"
+        for bigip in return_bigips:
+            msg = msg + " " + bigip.hostname
+        LOG.debug(msg)
+
+        if len(return_bigips) == 0 and \
+           kwargs.get('no_bigip_exception') is True:
+            raise Exception("No active bigips!")
+
+        return return_bigips
+
+    def get_config_bigips(self, **kwargs):
+        return self.get_all_bigips(**kwargs)
+
+    def get_active_bigips(self):
+        return self.get_all_bigips()
 
     @serialized('create_endpoint')
     @is_operational
