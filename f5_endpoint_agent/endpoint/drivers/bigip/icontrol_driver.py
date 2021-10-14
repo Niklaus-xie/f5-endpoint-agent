@@ -19,12 +19,11 @@ import datetime
 # import hashlib
 # import json
 import logging as std_logging
-import os
 import signal
 # import urllib
 
 # from eventlet import greenthread
-from time import strftime
+# from time import strftime
 # from time import time
 
 # from requests import HTTPError
@@ -32,7 +31,7 @@ from time import strftime
 from oslo_config import cfg
 # from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
-from oslo_utils import importutils
+# from oslo_utils import importutils
 
 from f5_endpoint_agent.endpoint.drivers.bigip import exceptions as f5ex
 
@@ -218,18 +217,9 @@ class iControlDriver(EndpointBaseDriver):
                 self.conf.os_password = base64.b64decode(self.conf.os_password)
 
         try:
-            # debug logging of service requests recieved by driver
-            if self.conf.trace_service_requests:
-                path = '/var/log/neutron/service/'
-                if not os.path.exists(path):
-                    os.makedirs(path)
-                self.file_name = path + strftime("%H%M%S-%m%d%Y") + '.json'
-                with open(self.file_name, 'w') as fp:
-                    fp.write('[{}] ')
-
             # driver mode settings - GRM vs L2 adjacent
             if self.conf.f5_global_routed_mode:
-                LOG.info('WARNING - f5_global_routed_mode enabled.'
+                LOG.info(' f5_global_routed_mode enabled.'
                          ' There will be no L2 or L3 orchestration'
                          ' or tenant isolation provisioned. All vips'
                          ' and pool members must be routable through'
@@ -276,41 +266,42 @@ class iControlDriver(EndpointBaseDriver):
             self._set_agent_status(False)
 
     def _init_bigip_managers(self):
+        # TODO(niklaus): to add needed managers
+        pass
+        # if self.conf.vlan_binding_driver:
+        #     try:
+        #         self.vlan_binding = importutils.import_object(
+        #             self.conf.vlan_binding_driver, self.conf, self)
+        #     except ImportError:
+        #         LOG.error('Failed to import VLAN binding driver: %s'
+        #                   % self.conf.vlan_binding_driver)
 
-        if self.conf.vlan_binding_driver:
-            try:
-                self.vlan_binding = importutils.import_object(
-                    self.conf.vlan_binding_driver, self.conf, self)
-            except ImportError:
-                LOG.error('Failed to import VLAN binding driver: %s'
-                          % self.conf.vlan_binding_driver)
+        # if self.conf.l3_binding_driver:
+        #     try:
+        #         self.l3_binding = importutils.import_object(
+        #             self.conf.l3_binding_driver, self.conf, self)
+        #     except ImportError:
+        #         LOG.error('Failed to import L3 binding driver: %s'
+        #                   % self.conf.l3_binding_driver)
+        # else:
+        #     LOG.debug('No L3 binding driver configured.'
+        #               ' No L3 binding will be done.')
 
-        if self.conf.l3_binding_driver:
-            try:
-                self.l3_binding = importutils.import_object(
-                    self.conf.l3_binding_driver, self.conf, self)
-            except ImportError:
-                LOG.error('Failed to import L3 binding driver: %s'
-                          % self.conf.l3_binding_driver)
-        else:
-            LOG.debug('No L3 binding driver configured.'
-                      ' No L3 binding will be done.')
+        # if self.conf.cert_manager:
+        #     try:
+        #         self.cert_manager = importutils.import_object(
+        #             self.conf.cert_manager, self.conf)
+        #     except ImportError as import_err:
+        #         LOG.error('Failed to import CertManager: %s.' %
+        #                   import_err.message)
+        #         raise
+        #     except Exception as err:
+        #         LOG.error('Failed to init CertManager. %s' % err.message)
+        #         # re-raise as ImportError to cause agent exit
+        #         raise ImportError(err.message)
 
-        if self.conf.cert_manager:
-            try:
-                self.cert_manager = importutils.import_object(
-                    self.conf.cert_manager, self.conf)
-            except ImportError as import_err:
-                LOG.error('Failed to import CertManager: %s.' %
-                          import_err.message)
-                raise
-            except Exception as err:
-                LOG.error('Failed to initialize CertManager. %s' % err.message)
-                # re-raise as ImportError to cause agent exit
-                raise ImportError(err.message)
-
-        if self.conf.f5_global_routed_mode:
-            self.network_builder = None
+        # if self.conf.f5_global_routed_mode:
+        #     self.network_builder = None
         # else:
         #     self.network_builder = NetworkServiceBuilder(
         #         self.conf.f5_global_routed_mode,
@@ -757,10 +748,6 @@ class iControlDriver(EndpointBaseDriver):
                 'icontrol_endpoints'][bigip.hostname][
                 'status_message'] = bigip.status_message
 
-            if self.conf.report_esd_names_in_agent:
-                LOG.debug('adding names to report:')
-                self.agent_configurations['esd_name'] = \
-                    self.get_valid_esd_names()
         # Policy - if any BIG-IP are active we're operational
         if self.get_active_bigips():
             self.operational = True

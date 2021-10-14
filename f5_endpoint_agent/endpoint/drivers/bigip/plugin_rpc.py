@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-# from oslo_log import helpers as log_helpers
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging as messaging
 
@@ -85,3 +85,21 @@ class Endpointv2PluginRPC(object):
 
         func = getattr(callee, kwargs['rpc_method'])
         return func(context, msg['method'], **msg['args'])
+
+    @log_helpers.log_method_call
+    def set_agent_admin_state(self, admin_state_up):
+        """Set the admin_state_up of for this agent"""
+        succeeded = False
+        try:
+            succeeded = self._call(
+                self.context,
+                self._make_msg('set_agent_admin_state',
+                               admin_state_up=admin_state_up,
+                               host=self.host),
+                topic=self.topic
+            )
+        except messaging.MessageDeliveryFailure:
+            LOG.error("agent->plugin RPC exception caught: ",
+                      "set_agent_admin_state")
+
+        return succeeded

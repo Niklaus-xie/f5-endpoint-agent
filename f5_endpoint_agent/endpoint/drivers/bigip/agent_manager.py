@@ -255,7 +255,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             agent_hash = str(
                 uuid.uuid5(uuid.NAMESPACE_DNS,
                            self.conf.environment_prefix +
-                           '.' + self.lbdriver.hostnames[0])
+                           '.' + self.endpoint_driver.hostnames[0])
                 )
             self.agent_host = conf.host + ":" + agent_hash
             LOG.debug('setting agent host to %s' % self.agent_host)
@@ -290,15 +290,15 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         self._setup_rpc()
 
         # Set driver context for RPC.
-        self.lbdriver.set_context(self.context)
-        # Allow the driver to make callbacks to the LBaaS driver plugin
-        self.lbdriver.set_plugin_rpc(self.plugin_rpc)
+        self.endpoint_driver.set_context(self.context)
+        # Allow the driver to make callbacks to the endpoint driver plugin
+        self.endpoint_driver.set_plugin_rpc(self.plugin_rpc)
         # Allow the driver to update tunnel endpoints
-        self.lbdriver.set_tunnel_rpc(self.tunnel_rpc)
+        # self.endpoint_driver.set_tunnel_rpc(self.tunnel_rpc)
         # Allow the driver to update forwarding records in the SDN
-        self.lbdriver.set_l2pop_rpc(self.l2_pop_rpc)
+        # self.endpoint_driver.set_l2pop_rpc(self.l2_pop_rpc)
         # Allow the driver to force and agent state report to the controller
-        self.lbdriver.set_agent_report_state(self._report_state)
+        # self.endpoint_driver.set_agent_report_state(self._report_state)
 
         # Set the flag to resync tunnels/services
         self.needs_resync = True
@@ -314,18 +314,19 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
                 self._report_state)
             heartbeat.start(interval=report_interval)
 
-        if self.lbdriver:
-            self.lbdriver.connect()
+        if self.endpoint_driver:
+            self.endpoint_driver.connect()
 
     def _load_driver(self, conf):
-        self.lbdriver = None
+        self.endpoint_driver = None
 
-        LOG.debug('loading LBaaS driver %s' %
+        LOG.debug('loading endpoint device driver %s' %
                   conf.f5_bigip_endpoint_device_driver)
         try:
-            self.lbdriver = importutils.import_object(
+            self.endpoint_driver = importutils.import_object(
                 conf.f5_bigip_endpoint_device_driver,
                 self.conf)
+            LOG.debug(self.endpoint_driver)
             return
         except ImportError as ie:
             msg = ('Error importing endpoint device driver: %s error %s'
@@ -416,17 +417,17 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             if force_resync:
                 self.needs_resync = True
                 self.cache.services = {}
-                self.lbdriver.flush_cache()
+                self.endpoint_driver.flush_cache()
             # use the admin_state_up to notify the
             # controller if all backend devices
             # are functioning properly. If not
             # automatically set the admin_state_up
             # for this agent to False
-            if self.lbdriver:
-                if not self.lbdriver.backend_integrity():
+            if self.endpoint_driver:
+                if not self.endpoint_driver.backend_integrity():
                     self.needs_resync = True
                     self.cache.services = {}
-                    self.lbdriver.flush_cache()
+                    self.endpoint_driver.flush_cache()
                     self.plugin_rpc.set_agent_admin_state(False)
                     self.admin_state_up = False
                 else:
@@ -436,9 +437,9 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
                         self.plugin_rpc.set_agent_admin_state(True)
                         self.admin_state_up = True
 
-            if self.lbdriver:
+            if self.endpoint_driver:
                 self.agent_state['configurations'].update(
-                    self.lbdriver.get_agent_configurations()
+                    self.endpoint_driver.get_agent_configurations()
                 )
 
             # add the capacity score, used by the scheduler
@@ -446,7 +447,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             # the driver
             if self.conf.capacity_policy:
                 env_score = (
-                    self.lbdriver.generate_capacity_score(
+                    self.endpoint_driver.generate_capacity_score(
                         self.conf.capacity_policy
                     )
                 )
@@ -479,15 +480,15 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def connect_driver(self, context):
         """Trigger driver connect attempts to all devices."""
-        if self.lbdriver:
-            self.lbdriver.connect()
+        if self.endpoint_driver:
+            self.endpoint_driver.connect()
 
     @periodic_task.periodic_task(spacing=PERIODIC_TASK_INTERVAL)
     def recover_errored_devices(self, context):
         """Try to reconnect to errored devices."""
-        if self.lbdriver:
+        if self.endpoint_driver:
             LOG.debug("running periodic task to retry errored devices")
-            self.lbdriver.recover_errored_devices()
+            self.endpoint_driver.recover_errored_devices()
 
     ######################################################################
     #
@@ -533,7 +534,8 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             # the agent transitioned to down to up and the
             # driver reports healthy, trash the cache
             # and force an update to update agent scheduler
-            if self.lbdriver.backend_integrity() and self.admin_state_up:
+            if self.endpoint_driver.backend_integrity() and \
+                    self.admin_state_up:
                 self._report_state(True)
             else:
                 self._report_state(False)
