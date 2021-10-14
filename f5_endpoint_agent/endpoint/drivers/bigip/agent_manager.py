@@ -65,11 +65,16 @@ OPTS = [
         default=True,
         help='Should the agent force its admin_state_up to True on boot'
     ),
+    cfg.BoolOpt(
+        'f5_global_routed_mode',
+        default=True,
+        help=('Disable all L2 and L3 integration in favor of global routing')
+    ),
     cfg.StrOpt(
         'f5_bigip_endpoint_device_driver',
         default=('f5_endpoint_agent.endpoint.drivers.bigip.icontrol_driver.'
                  'iControlDriver'),
-        help=('The driver used to provision BigIPs')
+        help=('The driver used to provision endpoint BigIPs')
     ),
     cfg.StrOpt(
         'provider_name',
@@ -87,6 +92,11 @@ OPTS = [
         help=('static agent ID to use with Neutron')
     ),
     cfg.StrOpt(
+        'static_agent_configuration_data',
+        default=None,
+        help=('static name:value entries to add to the agent configurations')
+    ),
+    cfg.StrOpt(
         'environment_prefix',
         default='Project',
         help=('The object name prefix for this environment')
@@ -95,6 +105,16 @@ OPTS = [
         'environment_specific_plugin',
         default=True,
         help=('Use environment specific plugin topic')
+    ),
+    cfg.IntOpt(
+        'environment_group_number',
+        default=1,
+        help=('Agent group number for the environment')
+    ),
+    cfg.BoolOpt(
+        'password_cipher_mode',
+        default=False,
+        help='The flag indicating the password is plain text or not.'
     ),
     cfg.IntOpt(
         'f5_errored_services_timeout',
@@ -212,9 +232,6 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         global PERIODIC_TASK_INTERVAL
         PERIODIC_TASK_INTERVAL = self.conf.periodic_interval
 
-        global PERIODIC_MEMBER_UPDATE_INTERVAL
-        PERIODIC_MEMBER_UPDATE_INTERVAL = self.conf.member_update_interval
-
         # Create the cache of provisioned services
         self.cache = LogicalServiceCache()
         self.last_resync = datetime.datetime.now()
@@ -225,10 +242,6 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         self.l2_pop_rpc = None
         self.state_rpc = None
         self.pending_services = {}
-
-        self.service_resync_interval = conf.service_resync_interval
-        LOG.debug('setting service resync intervl to %d seconds' %
-                  self.service_resync_interval)
 
         # Load the driver.
         self._load_driver(conf)
@@ -308,15 +321,15 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         self.lbdriver = None
 
         LOG.debug('loading LBaaS driver %s' %
-                  conf.f5_bigip_lbaas_device_driver)
+                  conf.f5_bigip_endpoint_device_driver)
         try:
             self.lbdriver = importutils.import_object(
-                conf.f5_bigip_lbaas_device_driver,
+                conf.f5_bigip_endpoint_device_driver,
                 self.conf)
             return
         except ImportError as ie:
-            msg = ('Error importing loadbalancer device driver: %s error %s'
-                   % (conf.f5_bigip_lbaas_device_driver, repr(ie)))
+            msg = ('Error importing endpoint device driver: %s error %s'
+                   % (conf.f5_bigip_endpoint_device_driver, repr(ie)))
             LOG.error(msg)
             raise SystemExit(msg)
 
@@ -336,7 +349,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
 
         # create our class we will use to send callbacks to the controller
         # for processing by the driver plugin
-        self.plugin_rpc = plugin_rpc.LBaaSv2PluginRPC(
+        self.plugin_rpc = plugin_rpc.Endpointv2PluginRPC(
             topic,
             self.context,
             self.conf.environment_prefix,
@@ -455,7 +468,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
     # messages to this agent
     def initialize_service_hook(self, started_by):
         """Create service hook to listen for messanges on agent topic."""
-        node_topic = "%s_%s.%s" % (constants_v2.TOPIC_LOADBALANCER_AGENT_V2,
+        node_topic = "%s_%s.%s" % (constants_v2.TOPIC_ENDPOINT_AGENT_V2,
                                    self.conf.environment_prefix,
                                    self.agent_host)
         LOG.debug("Creating topic for consuming messages: %s" % node_topic)
