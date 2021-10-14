@@ -23,6 +23,7 @@ class EndpointBaseDriver(object):
         self.connected = False  # XXX overridden in the only known subclass
         self.service_queue = []
         self.agent_configurations = {}  # XXX overridden in subclass
+        self.network_builder = None
 
     def set_context(self, context):
         """Set the global context object for the lbaas driver."""
