@@ -21,21 +21,49 @@ flake8:
   script:
     - flake8 f5_endpoint_agent
 
-# build-agent:
-#   services:
-#     - docker
-#   tags:
-#     - cm-official-docker-executor
-#   stage: build
-#   artifacts:
-#     paths:
-#       - dist/
-#   before_script:
-#     - yum --enablerepo=extras install -y epel-release
-#     - yum install -y rpm-build python-pip python-setuptools
-#   script:
-#     - python -m pip install pip==19.0.3
-#     - python f5-endpoint-agent-dist/scripts/universal_truth.py
-#     - echo "setup.cfg:"
-#     - cat setup.cfg
-#     - f5-endpoint-agent-dist/scripts/package_agent.sh "redhat" "7"
+build-agent:
+  tags:
+    - cm-official-docker-executor
+  stage: build
+  artifacts:
+    paths:
+      - f5-endpoint-agent-dist/rpms/build/
+  before_script:
+    - yum --enablerepo=extras install -y epel-release git
+    - yum install -y rpm-build python-pip python-setuptools
+    - yum -y update
+  script:
+    - python -m pip install pip==19.0.3
+    - python f5-endpoint-agent-dist/scripts/universal_truth.py
+    - echo "setup.cfg:"
+    - cat setup.cfg
+    - PKG_VERSION=$(python -c "import f5_endpoint_agent; print(f5_endpoint_agent.__version__)")
+    - PKG_RELEASE=$(python ./f5-endpoint-agent-dist/scripts/get-version-release.py --release)
+    - OS_VERSION=7
+    - buildroot=$(mktemp -d /tmp/f5-endpoint-agent.XXXXX)
+    - cwd=$(pwd)
+    - echo $cwd
+    - cp -R ./* ${buildroot}
+    - pwd && ls
+    - pushd ${buildroot}
+    - pwd && ls
+    - echo "release = ${PKG_RELEASE}" >> ./setup.cfg
+    - cat ./setup.cfg
+    - python setup.py build bdist_rpm --rpm-base rpmbuild
+    - echo "%_topdir ${buildroot}/rpmbuild" > ~/.rpmmacros
+    - PRE_INSTALL_SCRIPT=f5-endpoint-agent-dist/rpms/scripts/f5-endpoint-agent-preinstall.sh
+    - python setup.py bdist_rpm --spec-only --dist-dir rpmbuild/SPECS --pre-install ${PRE_INSTALL_SCRIPT}
+    - echo "%config /etc/neutron/services/f5/f5-endpoint-agent.ini" >> rpmbuild/SPECS/f5-endpoint-agent.spec
+    - rpmbuild -ba rpmbuild/SPECS/f5-endpoint-agent.spec
+    - ls rpmbuild/RPMS/noarch/ && ls
+    - pwd
+    - mkdir -p ${cwd}/f5-endpoint-agent-dist/rpms/build
+    - pkg=$(ls rpmbuild/RPMS/noarch/*.rpm)
+    - echo $pkg
+    - mv $pkg ${pkg%%.noarch.rpm}.el${OS_VERSION}.noarch.rpm
+    - ls && ls -alh dist
+    - cp -R rpmbuild/RPMS/noarch/* dist
+    - ls && ls -alh dist
+    - cp -R dist/* ${cwd}/f5-endpoint-agent-dist/rpms/build
+    - ls ${cwd}/f5-endpoint-agent-dist
+    - ls ${cwd}/f5-endpoint-agent-dist/rpms/build
