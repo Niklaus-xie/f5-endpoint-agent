@@ -125,6 +125,10 @@ OPTS = [
         help='OpenStack user password for Keystone authentication.'
     ),
     cfg.StrOpt(
+        'f5_network_segment_physical_network', default=None,
+        help='Name of physical network'
+    ),
+    cfg.StrOpt(
         'f5_parent_ssl_profile',
         default='clientssl',
         help='Parent profile used when creating client SSL profiles '
@@ -632,21 +636,6 @@ class iControlDriver(EndpointBaseDriver):
         if self.l3_binding:
             LOG.debug('getting BIG-IP MAC Address for L3 Binding')
             self.l3_binding.register_bigip_mac_addresses()
-
-        # endpoints = self.agent_configurations['icontrol_endpoints']
-        # for ic_host in endpoints.keys():
-        for hostbigip in self.get_all_bigips():
-
-            # hostbigip = self.__bigips[ic_host]
-            mac_addrs = [mac_addr for interface, mac_addr in
-                         hostbigip.device_interfaces.items()
-                         if interface != "mgmt"]
-            ports = self.plugin_rpc.get_ports_for_mac_addresses(
-                mac_addresses=mac_addrs)
-            if ports:
-                self.agent_configurations['nova_managed'] = True
-            else:
-                self.agent_configurations['nova_managed'] = False
 
         if self.network_builder:
             self.network_builder.post_init()
