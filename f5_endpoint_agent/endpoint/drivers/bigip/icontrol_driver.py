@@ -36,8 +36,14 @@ from oslo_log import log as logging
 from f5_endpoint_agent.endpoint.drivers.bigip import exceptions as f5ex
 
 from f5.bigip import ManagementRoot
+from f5_endpoint_agent.endpoint.drivers.bigip.cluster_manager import \
+    ClusterManager
 from f5_endpoint_agent.endpoint.drivers.bigip import constants_v2 as f5const
 from f5_endpoint_agent.endpoint.drivers.bigip import stat_helper
+from f5_endpoint_agent.endpoint.drivers.bigip.system_helper import \
+    SystemHelper
+from f5_endpoint_agent.endpoint.drivers.bigip.tenants import \
+    BigipTenantManager
 from f5_endpoint_agent.endpoint.drivers.bigip.utils import serialized
 
 from f5_endpoint_agent.endpoint.drivers.bigip.endpoint_driver import \
@@ -266,8 +272,6 @@ class iControlDriver(EndpointBaseDriver):
             self._set_agent_status(False)
 
     def _init_bigip_managers(self):
-        # TODO(niklaus): to add needed managers
-        pass
         # if self.conf.vlan_binding_driver:
         #     try:
         #         self.vlan_binding = importutils.import_object(
@@ -308,6 +312,12 @@ class iControlDriver(EndpointBaseDriver):
         #         self.conf,
         #         self,
         #         self.l3_binding)
+
+        # self.service_adapter = ServiceModelAdapter(self.conf)
+        self.tenant_manager = BigipTenantManager(self.conf, self)
+        self.cluster_manager = ClusterManager()
+        self.system_helper = SystemHelper()
+        # self.lbaas_builder = LBaaSBuilder(self.conf, self)
 
     def _init_bigip_hostnames(self):
         # Validate and parse bigip credentials
@@ -579,7 +589,11 @@ class iControlDriver(EndpointBaseDriver):
 
             # validate VTEP SelfIPs
             if not self.conf.f5_global_routed_mode:
-                self.network_builder.initialize_tunneling(bigip)
+                # TODO(niklaus) seems should add network_builder first
+                if self.network_builder:
+                    self.network_builder.initialize_tunneling(bigip)
+                else:
+                    LOG.warn('seems no need here')
 
             # Turn off tunnel syncing between BIG-IP
             # as our VTEPs properly use only local SelfIPs
@@ -883,6 +897,39 @@ class iControlDriver(EndpointBaseDriver):
 
     def get_active_bigips(self):
         return self.get_all_bigips()
+
+    def _init_traffic_groups(self, bigip):
+        try:
+            LOG.debug('retrieving traffic groups from %s' % bigip.hostname)
+            self.__traffic_groups = \
+                self.cluster_manager.get_traffic_groups(bigip)
+            if 'traffic-group-local-only' in self.__traffic_groups:
+                LOG.debug('removing reference to non-floating traffic group')
+                self.__traffic_groups.remove('traffic-group-local-only')
+            self.__traffic_groups.sort()
+            LOG.debug('service placement will done on traffic group(s): %s'
+                      % self.__traffic_groups)
+        except Exception:
+            bigip.status = 'error'
+            bigip.status_message = \
+                'could not determine traffic groups for service placement'
+            raise
+
+    def _validate_bigip_version(self, bigip, hostname):
+        # Ensure the BIG-IP has sufficient version
+        major_version = self.system_helper.get_major_version(bigip)
+        if major_version < f5const.MIN_TMOS_MAJOR_VERSION:
+            raise f5ex.MajorVersionValidateFailed(
+                'Device %s must be at least TMOS %s.%s'
+                % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
+                   f5const.MIN_TMOS_MINOR_VERSION))
+        minor_version = self.system_helper.get_minor_version(bigip)
+        if minor_version < f5const.MIN_TMOS_MINOR_VERSION:
+            raise f5ex.MinorVersionValidateFailed(
+                'Device %s must be at least TMOS %s.%s'
+                % (hostname, f5const.MIN_TMOS_MAJOR_VERSION,
+                   f5const.MIN_TMOS_MINOR_VERSION))
+        return major_version, minor_version
 
     @serialized('create_endpoint')
     @is_operational

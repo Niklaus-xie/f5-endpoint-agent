@@ -13,24 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import json
-import os
-import re
-import urllib
+# import json
+# import os
+# import re
+# import urllib
 
-from f5_endpoint_agent.endpoint.drivers.bigip import exceptions as f5_ex
-from f5_endpoint_agent.endpoint.drivers.bigip import resource_helper
-from f5_endpoint_agent.endpoint.drivers.bigip import tenants
-from f5_endpoint_agent.endpoint.drivers.bigip.utils import serialized
+# from f5_endpoint_agent.endpoint.drivers.bigip import exceptions as f5_ex
+# from f5_endpoint_agent.endpoint.drivers.bigip import resource_helper
+# from f5_endpoint_agent.endpoint.drivers.bigip import tenants
+# from f5_endpoint_agent.endpoint.drivers.bigip.utils import serialized
 # from f5_endpoint_agent.endpoint.drivers.bigip import virtual_address
-from icontrol.exceptions import iControlUnexpectedHTTPError
+# from icontrol.exceptions import iControlUnexpectedHTTPError
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from time import time
+# from time import time
 
-from requests import HTTPError
+# from requests import HTTPError
 
 LOG = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class ResourceManager(object):
         self.driver = driver
         self.service_queue = driver.service_queue
         self.mutable_props = {}
+        self.resource_helper = None
 
     def _shrink_payload(self, payload, **kwargs):
         keys_to_keep = kwargs.get('keys_to_keep', [])
