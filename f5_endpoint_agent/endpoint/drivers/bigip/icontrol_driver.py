@@ -50,7 +50,7 @@ __VERSION__ = '0.1.1'
 
 OPTS = [
     cfg.StrOpt(
-        'f5_ha_type', default='pair',
+        'f5_ha_type', default='standby',
         help='Are we standalone, pair(active/standby), or scalen'
     ),
     cfg.StrOpt(
@@ -739,6 +739,7 @@ class iControlDriver(EndpointBaseDriver):
                 self.network_builder.interface_mapping
 
     def _set_agent_status(self, force_resync=False):
+        LOG.info('inside _set_agent_status')
         for hostname in self.__bigips:
             bigip = self.__bigips[hostname]
             self.agent_configurations[
@@ -850,8 +851,15 @@ class iControlDriver(EndpointBaseDriver):
             self.network_builder.set_context(context)
 
     def set_plugin_rpc(self, plugin_rpc):
+        LOG.info('inside set_plugin_rpc')
+        LOG.info('plugin_rpc:')
+        LOG.info(plugin_rpc)
         # Provide Plugin RPC access
         self.plugin_rpc = plugin_rpc
+
+    def set_agent_report_state(self, report_state_callback):
+        """Set Agent Report State."""
+        self.agent_report_state = report_state_callback
 
     def get_all_bigips(self, **kwargs):
         return_bigips = []

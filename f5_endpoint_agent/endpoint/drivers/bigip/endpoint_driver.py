@@ -35,3 +35,7 @@ class EndpointBaseDriver(object):
     def set_agent_report_state(self, report_state_callback):
         """Set Agent Report State."""
         raise NotImplementedError()
+
+    def flush_cache(self):
+        """Remove all cached items."""
+        raise NotImplementedError()

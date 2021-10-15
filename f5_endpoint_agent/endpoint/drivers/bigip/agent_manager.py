@@ -36,6 +36,8 @@ except ImportError:
 
 from f5_endpoint_agent.endpoint.drivers.bigip import constants_v2
 from f5_endpoint_agent.endpoint.drivers.bigip import plugin_rpc
+# from f5_endpoint_agent.endpoint.drivers.bigip import resource_manager
+
 
 LOG = logging.getLogger(__name__)
 
@@ -98,7 +100,7 @@ OPTS = [
     ),
     cfg.StrOpt(
         'environment_prefix',
-        default='Project',
+        default='VPCEP',
         help=('The object name prefix for this environment')
     ),
     cfg.BoolOpt(
@@ -110,6 +112,11 @@ OPTS = [
         'environment_group_number',
         default=1,
         help=('Agent group number for the environment')
+    ),
+    cfg.DictOpt(
+        'capacity_policy',
+        default={},
+        help=('Metrics to measure capacity and their limits')
     ),
     cfg.BoolOpt(
         'password_cipher_mode',
@@ -298,22 +305,28 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         # Allow the driver to update forwarding records in the SDN
         # self.endpoint_driver.set_l2pop_rpc(self.l2_pop_rpc)
         # Allow the driver to force and agent state report to the controller
-        # self.endpoint_driver.set_agent_report_state(self._report_state)
+        self.endpoint_driver.set_agent_report_state(self._report_state)
 
         # Set the flag to resync tunnels/services
         self.needs_resync = True
 
         # Mark this agent admin_state_up per startup policy
+        LOG.info('self.admin_state_up here is:')
+        LOG.info(self.admin_state_up)
         if(self.admin_state_up):
             self.plugin_rpc.set_agent_admin_state(self.admin_state_up)
 
         # Start state reporting of agent to Neutron
         report_interval = self.conf.AGENT.report_interval
+        LOG.info('report_interval here is:')
+        LOG.info(report_interval)
         if report_interval:
             heartbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
             heartbeat.start(interval=report_interval)
 
+        LOG.info('self.endpoint_driver here is:')
+        LOG.info(self.endpoint_driver)
         if self.endpoint_driver:
             self.endpoint_driver.connect()
 
@@ -335,7 +348,7 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             raise SystemExit(msg)
 
     def _setup_rpc(self):
-
+        LOG.info('calling _setup_rpc')
         #
         # Setting up outbound (callbacks) communications from agent
         #
@@ -350,6 +363,8 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
 
         # create our class we will use to send callbacks to the controller
         # for processing by the driver plugin
+        LOG.info('topic is here:')
+        LOG.info(topic)
         self.plugin_rpc = plugin_rpc.Endpointv2PluginRPC(
             topic,
             self.context,
@@ -362,6 +377,8 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
         # Setting up outbound communcations with the neutron agent extension
         #
         self.state_rpc = agent_rpc.PluginReportStateAPI(topic)
+        LOG.info('self.state_rpc')
+        LOG.info(self.state_rpc)
 
         #
         # Setting up all inbound notifications and outbound callbacks
@@ -413,11 +430,13 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
             )
 
     def _report_state(self, force_resync=False):
+        LOG.info('inside _report_state')
         try:
             if force_resync:
                 self.needs_resync = True
                 self.cache.services = {}
-                self.endpoint_driver.flush_cache()
+                # todo
+                # self.endpoint_driver.flush_cache()
             # use the admin_state_up to notify the
             # controller if all backend devices
             # are functioning properly. If not
@@ -427,7 +446,8 @@ class EndpointAgentManager(periodic_task.PeriodicTasks):
                 if not self.endpoint_driver.backend_integrity():
                     self.needs_resync = True
                     self.cache.services = {}
-                    self.endpoint_driver.flush_cache()
+                    # todo
+                    # self.endpoint_driver.flush_cache()
                     self.plugin_rpc.set_agent_admin_state(False)
                     self.admin_state_up = False
                 else:
